@@ -1,0 +1,48 @@
+# Jekyll Configuration for GitHub Pages
+title: Truck DMS - Document Management System
+description: A comprehensive document management system for trucking companies
+baseurl: "/truck-dms"
+url: "https://yourusername.github.io/truck-dms"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - gemfiles/
+  - README.md
+  - app.py
+  - venv/
+  - uploads/
+  - data/
+  - requirements.txt
+  - run_truck_dms*.bat
+  - install_shortcut.bat
+  - uninstall.bat
+  - migrate_csv.py
+
+# Collections
+collections:
+  features:
+    output: true
+    permalink: /:collection/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+      author: "Truck DMS Team"
