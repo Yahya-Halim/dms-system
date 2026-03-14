@@ -1,13 +1,12 @@
 # Jekyll Configuration for GitHub Pages
 title: Truck DMS - Document Management System
 description: A comprehensive document management system for trucking companies
-baseurl: "/Yahya-Halim/dms-system"
-url: "https://yourusername.github.io/truck-dms"
+baseurl: "/dms-system"
+url: "https://Yahya-Halim.github.io/dms-system"
 
 # Build settings
 markdown: kramdown
 highlighter: rouge
-theme: minima
 plugins:
   - jekyll-feed
   - jekyll-sitemap
