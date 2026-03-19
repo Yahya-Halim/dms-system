@@ -1,5 +1,5 @@
 // API Base URL
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 // Global variables
 let documents = [];
@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Dropdown functions
 function setupDropdowns() {
-    // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#export-dropdown')) {
             document.getElementById('export-menu').classList.add('hidden');
@@ -32,14 +31,12 @@ function setupDropdowns() {
 function toggleExportDropdown() {
     const menu = document.getElementById('export-menu');
     menu.classList.toggle('hidden');
-    // Close filter dropdown when opening export dropdown
     document.getElementById('filter-menu').classList.add('hidden');
 }
 
 function toggleFilterDropdown() {
     const menu = document.getElementById('filter-menu');
     menu.classList.toggle('hidden');
-    // Close export dropdown when opening filter dropdown
     document.getElementById('export-menu').classList.add('hidden');
 }
 
@@ -47,15 +44,63 @@ function applyNavFilters() {
     const documentType = document.getElementById('nav-document-type-filter').value;
     const fileType = document.getElementById('nav-file-type-filter').value;
     
-    // Update the main filter inputs
-    document.getElementById('document-type-filter').value = documentType;
-    document.getElementById('type-filter').value = fileType;
+    const pageDocTypeSelect = document.getElementById('document-type-filter');
+    const pageFileTypeSelect = document.getElementById('type-filter');
     
-    // Apply search
+    if (pageDocTypeSelect) pageDocTypeSelect.value = documentType;
+    if (pageFileTypeSelect) pageFileTypeSelect.value = fileType;
+    
     searchDocuments();
-    
-    // Close dropdown
     document.getElementById('filter-menu').classList.add('hidden');
+}
+
+async function searchDocuments() {
+    const query = document.getElementById('search-input').value;
+    const documentType = document.getElementById('document-type-filter').value;
+    const fileType = document.getElementById('type-filter').value;
+    
+    document.getElementById('nav-document-type-filter').value = documentType;
+    document.getElementById('nav-file-type-filter').value = fileType;
+    
+    showLoading();
+    try {
+        const params = new URLSearchParams();
+        if (query) params.append('q', query);
+        if (documentType) params.append('document_type', documentType);
+        if (fileType) params.append('type', fileType);
+        
+        if (!documentType && selectedFilterTypes.length > 0) {
+            selectedFilterTypes.forEach(type => params.append('filter_types', type));
+        }
+        
+        const response = await fetch(`${API_BASE}/search?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            currentFilteredDocuments = data.documents;
+            displayDocuments(data.documents);
+            updateDocumentCount(data.documents.length);
+            updateTotalAmount(data.documents);
+        }
+    } catch (error) {
+        console.error('Error searching documents:', error);
+        showNotification('Error searching documents', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+// Modal functions
+function openUploadModal() {
+    document.getElementById('upload-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUploadModal() {
+    document.getElementById('upload-modal').classList.add('hidden');
+    document.getElementById('upload-form').reset();
+    document.getElementById('selected-file-name').textContent = '';
+    document.getElementById('document-fields-container').innerHTML = '';
+    document.body.style.overflow = 'auto';
 }
 
 function exportFilteredDocuments(format) {
@@ -65,9 +110,29 @@ function exportFilteredDocuments(format) {
     }
     
     if (format === 'pdf') {
-        exportToPDF();
+        exportToPDF(currentFilteredDocuments);
     } else if (format === 'excel') {
-        exportToExcel();
+        exportToExcel(currentFilteredDocuments);
+    } else if (format === 'csv') {
+        exportToCSV(currentFilteredDocuments);
+    }
+    
+    // Close dropdown
+    document.getElementById('export-menu').classList.add('hidden');
+}
+
+function exportAllDocuments(format) {
+    if (documents.length === 0) {
+        showNotification('No documents to export.', 'error');
+        return;
+    }
+    
+    if (format === 'pdf') {
+        exportToPDF(documents);
+    } else if (format === 'excel') {
+        exportToExcel(documents);
+    } else if (format === 'csv') {
+        exportToCSV(documents);
     }
     
     // Close dropdown
@@ -144,20 +209,6 @@ function handleFileSelect(input) {
     } else {
         fileNameElement.textContent = '';
     }
-}
-
-// Modal functions
-function openUploadModal() {
-    document.getElementById('upload-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeUploadModal() {
-    document.getElementById('upload-modal').classList.add('hidden');
-    document.getElementById('upload-form').reset();
-    document.getElementById('selected-file-name').textContent = '';
-    document.getElementById('document-fields-container').innerHTML = '';
-    document.body.style.overflow = 'auto';
 }
 
 async function openEditModal(doc) {
@@ -335,6 +386,7 @@ async function loadDocuments() {
 function populateDocumentTypeDropdown() {
     const typeSelect = document.getElementById('document-type');
     const navTypeSelect = document.getElementById('nav-document-type-filter');
+    const pageTypeSelect = document.getElementById('document-type-filter');
     
     if (typeSelect) {
         typeSelect.innerHTML = '<option value="">Select document type</option>';
@@ -347,6 +399,13 @@ function populateDocumentTypeDropdown() {
         navTypeSelect.innerHTML = '<option value="">All Types</option>';
         documentTypes.forEach(type => {
             navTypeSelect.innerHTML += `<option value="${type.id}">${type.name}</option>`;
+        });
+    }
+
+    if (pageTypeSelect) {
+        pageTypeSelect.innerHTML = '<option value="">All Types</option>';
+        documentTypes.forEach(type => {
+            pageTypeSelect.innerHTML += `<option value="${type.id}">${type.name}</option>`;
         });
     }
 }
@@ -438,39 +497,6 @@ async function renderDocumentFields() {
         }
     } catch (error) {
         console.error('Error loading document fields:', error);
-    }
-}
-
-async function searchDocuments() {
-    const query = document.getElementById('search-input').value;
-    const documentType = document.getElementById('document-type-filter').value;
-    const fileType = document.getElementById('type-filter').value;
-    
-    // Update navigation dropdowns to match
-    document.getElementById('nav-document-type-filter').value = documentType;
-    document.getElementById('nav-file-type-filter').value = fileType;
-    
-    showLoading();
-    try {
-        const params = new URLSearchParams();
-        if (query) params.append('q', query);
-        if (documentType) params.append('document_type', documentType);
-        if (fileType) params.append('type', fileType);
-        
-        const response = await fetch(`${API_BASE}/search?${params}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            currentFilteredDocuments = data.documents;
-            displayDocuments(data.documents);
-            updateDocumentCount(data.documents.length);
-            updateTotalAmount(data.documents);
-        }
-    } catch (error) {
-        console.error('Error searching documents:', error);
-        showNotification('Error searching documents', 'error');
-    } finally {
-        hideLoading();
     }
 }
 
@@ -772,7 +798,10 @@ function viewDocument(docId) {
                     </h2>
                     <div class="flex gap-2">
                         <button onclick="exportDocumentPDF('${doc.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all">
-                            <i class="fas fa-file-pdf mr-2"></i>Export PDF
+                            <i class="fas fa-file-pdf mr-2"></i>PDF
+                        </button>
+                        <button onclick="exportDocumentExcel('${doc.id}')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all">
+                            <i class="fas fa-file-excel mr-2"></i>Excel
                         </button>
                         <button onclick="this.closest('.modal').remove()" class="text-gray-500 hover:text-gray-700 text-2xl">
                             <i class="fas fa-times"></i>
@@ -878,7 +907,7 @@ function viewDocument(docId) {
                 </div>
                 
                 <div class="flex justify-end mt-6 gap-3">
-                    <button onclick='openEditModal(${JSON.stringify(doc).replace(/'/g, "\\'")})' class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all">
+                    <button onclick='this.closest(".modal").remove(); openEditModal(${JSON.stringify(doc).replace(/'/g, "\\'")})' class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all">
                         <i class="fas fa-edit mr-2"></i>Edit Document
                     </button>
                     <button onclick="downloadDocument('${doc.id}')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all">
@@ -895,14 +924,16 @@ function viewDocument(docId) {
     document.body.insertAdjacentHTML('beforeend', viewHtml);
 }
 
-function exportToPDF() {
+function exportToPDF(docList) {
     try {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation: 'landscape' });
         
+        const docsToExport = docList || currentFilteredDocuments;
+        
         // Group documents by type
         const documentsByType = {};
-        currentFilteredDocuments.forEach(doc => {
+        docsToExport.forEach(doc => {
             const type = doc.document_type || 'unknown';
             if (!documentsByType[type]) {
                 documentsByType[type] = [];
@@ -920,11 +951,11 @@ function exportToPDF() {
         
         pdf.setFontSize(10);
         pdf.setTextColor(100, 116, 139);
-        pdf.text(`Generated: ${new Date().toLocaleDateString()} · ${currentFilteredDocuments.length} document(s)`, 14, yPosition);
+        pdf.text(`Generated: ${new Date().toLocaleDateString()} · ${docsToExport.length} document(s)`, 14, yPosition);
         yPosition += 10;
         
         // Calculate total amount
-        const totalAmount = currentFilteredDocuments.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
+        const totalAmount = docsToExport.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
         pdf.text(`Total Amount: $${totalAmount.toFixed(2)}`, 14, yPosition);
         yPosition += 15;
         
@@ -981,11 +1012,13 @@ function exportToPDF() {
     }
 }
 
-function exportToExcel() {
+function exportToExcel(docList) {
     try {
+        const docsToExport = docList || currentFilteredDocuments;
+        
         // Group documents by type
         const documentsByType = {};
-        currentFilteredDocuments.forEach(doc => {
+        docsToExport.forEach(doc => {
             const type = doc.document_type || 'unknown';
             if (!documentsByType[type]) {
                 documentsByType[type] = [];
@@ -1034,7 +1067,7 @@ function exportToExcel() {
                 const totalAmount = docs.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
                 return [type.name, docs.length, `$${totalAmount.toFixed(2)}`];
             }),
-            ['TOTAL', currentFilteredDocuments.length, `$${currentFilteredDocuments.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0).toFixed(2)}`]
+            ['TOTAL', docsToExport.length, `$${docsToExport.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0).toFixed(2)}`]
         ];
         
         const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
@@ -1366,7 +1399,7 @@ function exportDocumentPDF(docId) {
     
     // Prepare headers and data based on document type
     const headers = getPDFHeadersForType(doc.document_type);
-    const rows = getPDFRowsForDocument(doc);
+    const rows = [getPDFRowsForDocument(doc)];
     
     // Create table using autoTable
     pdf_doc.autoTable({
@@ -1383,4 +1416,267 @@ function exportDocumentPDF(docId) {
     // Generate filename
     const filename = `${doc.document_type}_${new Date().toISOString().slice(0,10)}.pdf`;
     pdf_doc.save(filename);
+}
+
+function exportToCSV(docList) {
+    try {
+        const docsToExport = docList || currentFilteredDocuments;
+        
+        if (docsToExport.length === 0) {
+            showNotification('No documents to export', 'error');
+            return;
+        }
+        
+        const csvRows = [];
+        
+        // Add BOM for Excel compatibility
+        csvRows.push('\uFEFF');
+        
+        // Get all unique document types
+        const docTypes = [...new Set(docsToExport.map(d => d.document_type || 'unknown'))];
+        
+        // Process each document type
+        docTypes.forEach((docType, index) => {
+            const typeDocs = docsToExport.filter(d => (d.document_type || 'unknown') === docType);
+            const type = documentTypes.find(t => t.id === docType) || { name: docType };
+            
+            // Add type header as comment
+            csvRows.push(`# ${type.name.toUpperCase()} (${typeDocs.length} documents)`);
+            
+            // Get headers for this document type
+            const headers = getCSVHeadersForType(docType);
+            csvRows.push(headers.join(','));
+            
+            // Add document data
+            typeDocs.forEach(doc => {
+                const row = getCSVRowForDocument(doc, docType);
+                csvRows.push(row);
+            });
+            
+            // Add empty line between types
+            if (index < docTypes.length - 1) {
+                csvRows.push('');
+            }
+        });
+        
+        // Add summary section
+        csvRows.push('');
+        csvRows.push('# SUMMARY');
+        csvRows.push('Document Type,Count,Total Amount');
+        
+        const documentsByType = {};
+        docsToExport.forEach(doc => {
+            const type = doc.document_type || 'unknown';
+            if (!documentsByType[type]) {
+                documentsByType[type] = [];
+            }
+            documentsByType[type].push(doc);
+        });
+        
+        Object.keys(documentsByType).forEach(docType => {
+            const type = documentTypes.find(t => t.id === docType) || { name: docType };
+            const docs = documentsByType[docType];
+            const totalAmount = docs.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
+            csvRows.push(`${type.name},${docs.length},$${totalAmount.toFixed(2)}`);
+        });
+        
+        const grandTotal = docsToExport.reduce((sum, doc) => sum + (parseFloat(doc.amount) || 0), 0);
+        csvRows.push(`TOTAL,${docsToExport.length},$${grandTotal.toFixed(2)}`);
+        
+        // Create and download file
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const filename = `truck_dms_export_${new Date().toISOString().slice(0,10)}.csv`;
+        
+        if (navigator.msSaveBlob) {
+            navigator.msSaveBlob(blob, filename);
+        } else {
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+        
+        showNotification('CSV exported successfully');
+    } catch (error) {
+        console.error('Error exporting CSV:', error);
+        showNotification('Error exporting CSV', 'error');
+    }
+}
+
+function getCSVHeadersForType(documentType) {
+    const headers = {
+        'rc': ['Date', 'Load Number', 'Dispatcher', 'Broker/Shipper', 'Pickup Address', 'Pickup Date/Time', 'Dropoff Address', 'Dropoff Date/Time', 'Miles', 'DH Miles', 'Total Miles', 'Rate/Mile', 'Amount', 'Document Name'],
+        'bol': ['Date', 'BOL Number', 'RC Number', 'Load Number', 'Dispatcher', 'Broker/Shipper', 'Pickup Address', 'Pickup Date/Time', 'Dropoff Address', 'Dropoff Date/Time', 'Miles', 'DH Miles', 'Document Name'],
+        'pod': ['Date', 'RC Number', 'Load Number', 'Dispatcher', 'Broker/Shipper', 'Pickup Address', 'Pickup Date/Time', 'Dropoff Address', 'Dropoff Date/Time', 'Miles', 'Document Name'],
+        'dispatcher': ['Date', 'Dispatcher Company', 'Phone Number', 'Email', 'RC Number', 'Load Number', 'Broker/Shipper', 'Pickup Address', 'Pickup Date/Time', 'Dropoff Address', 'Dropoff Date/Time', 'RC Amount', 'Dispatcher %', 'Dispatcher Amount'],
+        'fuel': ['Date', 'Receipt Number', 'Receipt Date', 'Amount', 'RC Number', 'Load Number', 'Pickup Address', 'Pickup Date/Time', 'Dropoff Address', 'Dropoff Date/Time', 'RC Amount'],
+        'invoice': ['Date', 'Invoice Number', 'RC Number', 'Load Number', 'Dispatcher', 'Broker/Shipper', 'Pickup', 'Dropoff', 'Miles', 'DH Miles', 'Total Miles', 'Amount RC', 'Quick Pay %', 'Amount Received'],
+        'rlp': ['Date', 'RLP Number', 'Date Received', 'Invoice Number', 'RC Number', 'Load Number', 'Dispatcher', 'Broker/Shipper', 'Total Miles', 'Amount RC', 'Quick Pay %', 'Amount Received']
+    };
+    
+    return headers[documentType] || ['Date', 'Title', 'Amount', 'Driver Name'];
+}
+
+function getCSVRowForDocument(doc, documentType) {
+    const date = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : (doc.upload_date ? new Date(doc.upload_date).toLocaleDateString() : '');
+    
+    const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+    
+    let row = [];
+    
+    if (documentType === 'rc') {
+        row = [date, 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.dispatcher), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.pickup_datetime), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.dropoff_datetime), 
+            escapeCSV(doc.miles), 
+            escapeCSV(doc.dh_miles), 
+            escapeCSV(doc.total_miles), 
+            escapeCSV(doc.rate_per_mile), 
+            parseFloat(doc.amount || 0), 
+            escapeCSV(doc.document_name)];
+    } else if (documentType === 'bol') {
+        row = [date, 
+            escapeCSV(doc.bol_number), 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.dispatcher), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.pickup_datetime), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.dropoff_datetime), 
+            escapeCSV(doc.miles), 
+            escapeCSV(doc.dh_miles),
+            escapeCSV(doc.document_name)];
+    } else if (documentType === 'pod') {
+        row = [date, 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.dispatcher), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.pickup_datetime), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.dropoff_datetime), 
+            escapeCSV(doc.miles),
+            escapeCSV(doc.document_name)];
+    } else if (documentType === 'dispatcher') {
+        row = [date, 
+            escapeCSV(doc.dispatcher_company), 
+            escapeCSV(doc.phone_number), 
+            escapeCSV(doc.email), 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.pickup_datetime), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.dropoff_datetime), 
+            parseFloat(doc.rc_amount || 0), 
+            escapeCSV(doc.dispatcher_percentage), 
+            parseFloat(doc.dispatcher_amount || 0)];
+    } else if (documentType === 'fuel') {
+        row = [date, 
+            escapeCSV(doc.receipt_number), 
+            escapeCSV(doc.receipt_date), 
+            parseFloat(doc.amount || 0), 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.pickup_datetime), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.dropoff_datetime), 
+            parseFloat(doc.rc_amount || 0)];
+    } else if (documentType === 'invoice') {
+        row = [date, 
+            escapeCSV(doc.invoice_number), 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.dispatcher), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.pickup_address), 
+            escapeCSV(doc.dropoff_address), 
+            escapeCSV(doc.miles), 
+            escapeCSV(doc.dh_miles), 
+            escapeCSV(doc.total_miles), 
+            parseFloat(doc.amount || 0), 
+            escapeCSV(doc.quickpay_percentage), 
+            parseFloat(doc.amount_received || 0)];
+    } else if (documentType === 'rlp') {
+        row = [date, 
+            escapeCSV(doc.rlp_number), 
+            escapeCSV(doc.date_received), 
+            escapeCSV(doc.invoice_number), 
+            escapeCSV(doc.rc_number), 
+            escapeCSV(doc.load_number), 
+            escapeCSV(doc.dispatcher), 
+            escapeCSV(doc.broker_shipper), 
+            escapeCSV(doc.total_miles), 
+            parseFloat(doc.amount || 0), 
+            escapeCSV(doc.quickpay_percentage), 
+            parseFloat(doc.amount_received || 0)];
+    } else {
+        row = [date, escapeCSV(doc.title || ''), parseFloat(doc.amount || 0), escapeCSV(doc.driver_name || '')];
+    }
+    
+    return row.join(',');
+}
+
+function exportDocumentExcel(docId) {
+    const doc = documents.find(d => d.id === docId);
+    if (!doc) {
+        showNotification('Document not found', 'error');
+        return;
+    }
+    
+    try {
+        const type = documentTypes.find(t => t.id === doc.document_type) || { name: doc.document_type || 'Unknown' };
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Create worksheet data
+        const wsData = [];
+        
+        // Add headers
+        const headers = getExcelHeadersForType(doc.document_type);
+        wsData.push(headers);
+        
+        // Add document data
+        const row = getExcelRowForDocument(doc, doc.document_type);
+        wsData.push(row);
+        
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Set column widths
+        const colWidths = headers.map(() => ({ wch: 15 }));
+        ws['!cols'] = colWidths;
+        
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, type.name);
+        
+        // Save file
+        const filename = `${doc.document_type}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, filename);
+        
+        showNotification('Excel exported successfully');
+    } catch (error) {
+        console.error('Error exporting Excel:', error);
+        showNotification('Error exporting Excel', 'error');
+    }
 }

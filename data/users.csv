@@ -1,0 +1,2 @@
+id,username,password,email,role,created_at,last_login,is_active
+b71082f5-8301-4b90-9a9a-b472e977f9e2,admin,240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9,admin@truckdms.com,admin,2026-03-18T17:23:42.453714,2026-03-19T16:58:54.350894,True

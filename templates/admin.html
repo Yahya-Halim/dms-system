@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Truck DMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar-item.active { background-color: #f3f4f6; border-right: 3px solid #3b82f6; font-weight: 600; color: #1d4ed8; }
+        .dark .sidebar-item.active { background-color: #374151; color: #60a5fa; }
+        .modal { background: rgba(0,0,0,0.5); }
+        .dark .tab-content h2, .dark .tab-content h3 { color: #f3f4f6; }
+        .dark .tab-content p { color: #9ca3af; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 flex h-screen overflow-hidden text-gray-800 dark:text-gray-200 transition-colors duration-200">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col hidden md:flex transition-colors duration-200">
+        <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700">
+            <i class="fas fa-truck text-blue-600 dark:text-blue-400 text-xl mr-3"></i>
+            <span class="text-xl font-bold dark:text-white">Truck DMS</span>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4">
+            <nav class="space-y-1">
+                <a href="#" class="sidebar-item active flex items-center px-6 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" onclick="switchTab('users', this)">
+                    <i class="fas fa-users w-5 text-gray-400"></i> Manage Users
+                </a>
+                <a href="#" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" onclick="switchTab('tags', this)">
+                    <i class="fas fa-tags w-5 text-gray-400"></i> Document Types (Tags)
+                </a>
+                <a href="#" class="sidebar-item flex items-center px-6 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" onclick="switchTab('fields', this)">
+                    <i class="fas fa-columns w-5 text-gray-400"></i> Custom Fields
+                </a>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button id="theme-toggle-sidebar" class="w-full flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-3">
+                <i id="theme-icon-dark" class="fas fa-moon w-5"></i> Dark Mode
+            </button>
+            <a href="/" class="flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-3">
+                <i class="fas fa-arrow-left w-5"></i> Back to App
+            </a>
+            <a href="/logout" class="flex items-center text-sm font-medium text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                <i class="fas fa-sign-out-alt w-5"></i> Sign Out
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+        <!-- Top bar mobile -->
+        <header class="md:hidden h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 transition-colors duration-200">
+            <div class="flex items-center">
+                <i class="fas fa-truck text-blue-600 dark:text-blue-400 text-xl mr-2"></i>
+                <span class="font-bold dark:text-white">Truck Admin</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="theme-toggle-mobile" class="text-gray-500 dark:text-gray-400 focus:outline-none">
+                    <i id="theme-icon-mobile" class="fas fa-moon"></i>
+                </button>
+                <a href="/" class="text-gray-500 dark:text-gray-400"><i class="fas fa-home text-lg"></i></a>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-8">
+            
+            <!-- Users Tab -->
+            <div id="tab-users" class="tab-content block">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Manage Users</h2>
+                        <p class="text-sm text-gray-500">Add drivers or admins to the system.</p>
+                    </div>
+                    <button onclick="openModal('user-modal')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-plus mr-2"></i> Add User
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="users-tbody">
+                            <!-- Users loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tags Tab -->
+            <div id="tab-tags" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Document Types</h2>
+                        <p class="text-sm text-gray-500">Manage the document tags available in the system.</p>
+                    </div>
+                    <button onclick="openTagModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-plus mr-2"></i> Add Type
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="tags-grid">
+                    <!-- Tags loaded here -->
+                </div>
+            </div>
+
+            <!-- Fields Tab -->
+            <div id="tab-fields" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Custom Fields</h2>
+                        <p class="text-sm text-gray-500">Manage data fields collected for each document type.</p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-6 flex-col lg:flex-row">
+                    <!-- Type Selector -->
+                    <div class="w-full lg:w-64 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <h3 class="font-semibold text-gray-800 mb-3 border-b pb-2">Select Type</h3>
+                        <div class="space-y-1" id="field-type-list">
+                            <!-- Types loaded here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Fields Editor -->
+                    <div class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-semibold text-gray-800 text-lg" id="current-fields-title">Select a document type</h3>
+                            <button onclick="openFieldModal()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors hidden" id="add-field-btn">
+                                <i class="fas fa-plus mr-1"></i> Add Field
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-3" id="fields-list">
+                            <div class="text-gray-500 text-sm italic">Click on a document type to view its fields.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Modals -->
+
+    <!-- User Modal -->
+    <div id="user-modal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-900" id="user-modal-title">Add User</h3>
+                <button onclick="closeModal('user-modal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="user-form" onsubmit="saveUser(event)">
+                    <input type="hidden" id="user-id">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                        <input type="text" id="user-username" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="user-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                        <select id="user-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="driver">Driver</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-4" id="user-password-container">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" id="user-password-label">Password *</label>
+                        <input type="password" id="user-password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-gray-500 mt-1" id="user-password-help"></p>
+                    </div>
+                    <div class="mb-4 flex items-center hidden" id="user-active-container">
+                        <input type="checkbox" id="user-active" class="mr-2">
+                        <label class="text-sm font-medium text-gray-700">Account Active</label>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" onclick="closeModal('user-modal')" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Save User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Modal -->
+    <div id="tag-modal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-900" id="tag-modal-title">Add Document Type</h3>
+                <button onclick="closeModal('tag-modal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="tag-form" onsubmit="saveTag(event)">
+                    <input type="hidden" id="tag-is-edit" value="false">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ID (lowercase, no spaces) *</label>
+                        <input type="text" id="tag-id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input type="text" id="tag-name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color *</label>
+                        <input type="color" id="tag-color" required class="w-full h-10 px-1 py-1 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon *</label>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 flex-shrink-0 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-300 text-lg">
+                                <i id="tag-icon-preview" class="fas fa-file"></i>
+                            </div>
+                            <select id="tag-icon" required onchange="document.getElementById('tag-icon-preview').className = 'fas ' + this.value" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                                <optgroup label="Documents">
+                                    <option value="fa-file">File</option>
+                                    <option value="fa-file-alt">File Line</option>
+                                    <option value="fa-file-contract">Contract</option>
+                                    <option value="fa-file-invoice">Invoice</option>
+                                    <option value="fa-file-invoice-dollar">Invoice Dollar</option>
+                                    <option value="fa-file-signature">Signature</option>
+                                    <option value="fa-file-pdf">PDF Document</option>
+                                    <option value="fa-copy">Copy / Duplicate</option>
+                                    <option value="fa-folder">Folder</option>
+                                    <option value="fa-folder-open">Folder Open</option>
+                                    <option value="fa-receipt">Receipt</option>
+                                    <option value="fa-clipboard">Clipboard</option>
+                                    <option value="fa-clipboard-list">Clipboard List</option>
+                                    <option value="fa-clipboard-check">Clipboard Check</option>
+                                </optgroup>
+                                <optgroup label="Trucking & Logistics">
+                                    <option value="fa-truck">Truck</option>
+                                    <option value="fa-truck-moving">Moving Truck</option>
+                                    <option value="fa-truck-loading">Loading Truck</option>
+                                    <option value="fa-gas-pump">Gas Pump (Fuel)</option>
+                                    <option value="fa-road">Road</option>
+                                    <option value="fa-map-marker-alt">Location (Dropoff/Pickup)</option>
+                                    <option value="fa-box">Box</option>
+                                    <option value="fa-boxes">Boxes</option>
+                                    <option value="fa-pallet">Pallet</option>
+                                    <option value="fa-warehouse">Warehouse</option>
+                                    <option value="fa-route">Route</option>
+                                    <option value="fa-oil-can">Oil</option>
+                                </optgroup>
+                                <optgroup label="Finance & Admin">
+                                    <option value="fa-dollar-sign">Dollar Sign</option>
+                                    <option value="fa-money-bill">Money Bill</option>
+                                    <option value="fa-money-check-alt">Check</option>
+                                    <option value="fa-credit-card">Credit Card</option>
+                                    <option value="fa-headset">Headset (Dispatcher)</option>
+                                    <option value="fa-user-tie">Admin / Boss</option>
+                                    <option value="fa-id-card">ID Card</option>
+                                    <option value="fa-hard-hat">Hard Hat</option>
+                                    <option value="fa-building">Building / Company</option>
+                                    <option value="fa-balance-scale">Legal / Scale</option>
+                                    <option value="fa-calculator">Calculator</option>
+                                    <option value="fa-tags">Tags</option>
+                                    <option value="fa-star">Star</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" onclick="closeModal('tag-modal')" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700">Save Type</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Field Modal -->
+    <div id="field-modal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-900" id="field-modal-title">Add Custom Field</h3>
+                <button onclick="closeModal('field-modal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <form id="field-form" onsubmit="saveField(event)">
+                    <input type="hidden" id="field-is-edit" value="false">
+                    <input type="hidden" id="field-original-id" value="">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Field ID (lowercase, snake_case) *</label>
+                        <input type="text" id="field-id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Input Label *</label>
+                        <input type="text" id="field-label" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Input Type *</label>
+                        <select id="field-type" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                            <option value="text">Text (Short)</option>
+                            <option value="number">Number</option>
+                            <option value="date">Date</option>
+                            <option value="datetime-local">Date & Time</option>
+                            <option value="email">Email</option>
+                            <option value="tel">Phone</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" onclick="closeModal('field-modal')" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                        <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">Save Field</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert component -->
+    <div id="alert-toast" class="fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 transform transition-transform translate-x-full">
+        <span id="alert-message"></span>
+    </div>
+
+    <script>
+        // Dark Mode Setup
+        const themeBtnSidebar = document.getElementById('theme-toggle-sidebar');
+        const themeIconDark = document.getElementById('theme-icon-dark');
+        const themeBtnMobile = document.getElementById('theme-toggle-mobile');
+        const themeIconMobile = document.getElementById('theme-icon-mobile');
+
+        function updateThemeIcons() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if(isDark) {
+                themeIconDark.className = "fas fa-sun w-5";
+                themeBtnSidebar.innerHTML = `<i class="fas fa-sun w-5"></i> Light Mode`;
+                if(themeIconMobile) themeIconMobile.className = "fas fa-sun";
+            } else {
+                themeIconDark.className = "fas fa-moon w-5";
+                themeBtnSidebar.innerHTML = `<i class="fas fa-moon w-5"></i> Dark Mode`;
+                if(themeIconMobile) themeIconMobile.className = "fas fa-moon";
+            }
+        }
+        updateThemeIcons();
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+            updateThemeIcons();
+        }
+
+        if(themeBtnSidebar) themeBtnSidebar.addEventListener('click', toggleTheme);
+        if(themeBtnMobile) themeBtnMobile.addEventListener('click', toggleTheme);
+
+        let currentSettings = { document_types: [], document_type_fields: {} };
+        let currentFieldsDocType = null;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+            loadSettings();
+        });
+
+        function switchTab(tab, element) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function showAlert(message, isError = false) {
+            const toast = document.getElementById('alert-toast');
+            toast.textContent = message;
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 transform transition-transform duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            
+            // Trigger animation
+            setTimeout(() => toast.style.transform = 'translateX(0)', 10);
+            setTimeout(() => toast.style.transform = 'translateX(150%)', 3000);
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // ================= USERS =================
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.getElementById('users-tbody');
+                    tbody.innerHTML = data.users.map(u => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-8 w-8 rounded-full ${u.role==='admin'?'bg-blue-100 text-blue-600':'bg-gray-100 text-gray-600'} flex items-center justify-center font-bold">
+                                        ${u.username.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">${u.username}</div>
+                                        <div class="text-sm text-gray-500">${u.email || '-'}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role==='admin'?'bg-blue-100 text-blue-800':'bg-gray-100 text-gray-800'}">
+                                    ${u.role}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${u.is_active?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">
+                                    ${u.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button onclick='editUser(${JSON.stringify(u).replace(/'/g, "\\'")})' class="text-blue-600 hover:text-blue-900 mr-3"><i class="fas fa-edit"></i></button>
+                                ${u.username !== 'admin' ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>` : ''}
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) { showAlert('Error loading users', true); }
+        }
+
+        function editUser(user) {
+            document.getElementById('user-modal-title').textContent = 'Edit User';
+            document.getElementById('user-id').value = user.id;
+            const userInp = document.getElementById('user-username');
+            userInp.value = user.username;
+            userInp.readOnly = true;
+            userInp.classList.add('bg-gray-100');
+            
+            document.getElementById('user-email').value = user.email || '';
+            document.getElementById('user-role').value = user.role;
+            
+            document.getElementById('user-password-label').textContent = 'New Password (leave blank to keep current)';
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-password').required = false;
+            
+            const activeCont = document.getElementById('user-active-container');
+            const activeBox = document.getElementById('user-active');
+            if (user.username === 'admin') {
+                activeCont.classList.add('hidden');
+                activeBox.checked = true;
+                document.getElementById('user-role').disabled = true;
+            } else {
+                activeCont.classList.remove('hidden');
+                activeBox.checked = user.is_active;
+                document.getElementById('user-role').disabled = false;
+            }
+            
+            openModal('user-modal');
+        }
+
+        async function saveUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('user-id').value;
+            const isEdit = !!id;
+            
+            const payload = {
+                username: document.getElementById('user-username').value,
+                email: document.getElementById('user-email').value,
+                role: document.getElementById('user-role').value,
+                password: document.getElementById('user-password').value
+            };
+            if (isEdit) {
+                payload.is_active = document.getElementById('user-active').checked;
+            }
+            
+            const url = isEdit ? `/api/admin/users/${id}` : '/api/admin/users';
+            const method = isEdit ? 'PUT' : 'POST';
+            
+            try {
+                const res = await fetch(url, {
+                    method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showAlert(isEdit ? 'User updated' : 'User created');
+                    closeModal('user-modal');
+                    loadUsers();
+                } else {
+                    showAlert(data.error || 'Error saving user', true);
+                }
+            } catch (e) { showAlert('Failed to save user', true); }
+        }
+
+        async function deleteUser(id) {
+            if(!confirm('Delete this user?')) return;
+            try {
+                const res = await fetch(`/api/admin/users/${id}`, {method: 'DELETE'});
+                if ((await res.json()).success) {
+                    showAlert('User deleted');
+                    loadUsers();
+                }
+            } catch (e) { showAlert('Error deleting user', true); }
+        }
+
+        // ================= SETTINGS (TAGS & FIELDS) =================
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/admin/settings');
+                const data = await res.json();
+                if (data.success) {
+                    currentSettings = data.settings;
+                    renderTags();
+                    renderFieldTypesList();
+                }
+            } catch (e) { showAlert('Error loading settings', true); }
+        }
+
+        async function saveSettingsToServer() {
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(currentSettings)
+                });
+                if ((await res.json()).success) {
+                    showAlert('Settings applied & saved');
+                    loadSettings();
+                }
+            } catch (e) { showAlert('Error saving settings', true); }
+        }
+
+        function renderTags() {
+            const grid = document.getElementById('tags-grid');
+            grid.innerHTML = currentSettings.document_types.map(t => `
+                <div class="bg-white border text-gray-700 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition-shadow flex flex-col items-start gap-3">
+                    <div class="flex items-center gap-3 w-full border-b pb-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg" style="background-color: ${t.color}">
+                            <i class="fas ${t.icon}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg">${t.name}</h3>
+                            <p class="text-xs text-gray-500 font-mono">ID: ${t.id}</p>
+                        </div>
+                    </div>
+                    <div class="flex w-full justify-between items-center pt-1">
+                        <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 border">${(currentSettings.document_type_fields[t.id]||[]).length} Custom Fields</span>
+                        <div class="space-x-2">
+                            <button onclick='editTag(${JSON.stringify(t).replace(/'/g, "\\'")})' class="text-blue-500 hover:text-blue-700"><i class="fas fa-edit"></i> Edit</button>
+                            <button onclick="deleteTag('${t.id}')" class="text-red-500 hover:text-red-700 ml-2"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openTagModal() {
+            document.getElementById('tag-is-edit').value = 'false';
+            document.getElementById('tag-id').readOnly = false;
+            document.getElementById('tag-form').reset();
+            document.getElementById('tag-color').value = '#3b82f6';
+            document.getElementById('tag-icon').value = 'fa-file';
+            document.getElementById('tag-icon-preview').className = 'fas fa-file';
+            document.getElementById('tag-modal-title').textContent = 'Add Document Type';
+            openModal('tag-modal');
+        }
+
+        function editTag(tag) {
+            document.getElementById('tag-is-edit').value = 'true';
+            document.getElementById('tag-id').value = tag.id;
+            document.getElementById('tag-id').readOnly = true;
+            document.getElementById('tag-name').value = tag.name;
+            document.getElementById('tag-color').value = tag.color;
+            if(document.querySelector(`#tag-icon option[value="${tag.icon}"]`)) {
+                document.getElementById('tag-icon').value = tag.icon;
+            }
+            document.getElementById('tag-icon-preview').className = 'fas ' + tag.icon;
+            document.getElementById('tag-modal-title').textContent = 'Edit Document Type';
+            openModal('tag-modal');
+        }
+
+        function saveTag(e) {
+            e.preventDefault();
+            const id = document.getElementById('tag-id').value.toLowerCase().replace(/\s+/g, '_');
+            const isEdit = document.getElementById('tag-is-edit').value === 'true';
+            
+            const newTag = {
+                id,
+                name: document.getElementById('tag-name').value,
+                color: document.getElementById('tag-color').value,
+                icon: document.getElementById('tag-icon').value
+            };
+
+            if (isEdit) {
+                const idx = currentSettings.document_types.findIndex(t => t.id === id);
+                if (idx > -1) currentSettings.document_types[idx] = newTag;
+            } else {
+                if (currentSettings.document_types.find(t => t.id === id)) {
+                    showAlert('Type ID already exists', true); return;
+                }
+                currentSettings.document_types.push(newTag);
+                if (!currentSettings.document_type_fields[id]) {
+                    currentSettings.document_type_fields[id] = [];
+                }
+            }
+            saveSettingsToServer();
+            closeModal('tag-modal');
+        }
+
+        function deleteTag(id) {
+            if(!confirm('Delete this document type? This might break existing documents using it.')) return;
+            currentSettings.document_types = currentSettings.document_types.filter(t => t.id !== id);
+            delete currentSettings.document_type_fields[id];
+            saveSettingsToServer();
+        }
+
+        // ================= FIELDS =================
+
+        function renderFieldTypesList() {
+            const list = document.getElementById('field-type-list');
+            list.innerHTML = currentSettings.document_types.map(t => `
+                <button onclick="selectFieldType('${t.id}', '${t.name}')" id="btn-type-${t.id}" class="w-full text-left px-4 py-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors border border-transparent">
+                    <div class="flex items-center">
+                        <i class="fas ${t.icon} w-5 mr-3" style="color: ${t.color}"></i> 
+                        <span class="font-medium">${t.name}</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                </button>
+            `).join('');
+        }
+
+        function selectFieldType(typeId, typeName) {
+            currentFieldsDocType = typeId;
+            
+            // Highlight selection
+            document.querySelectorAll('#field-type-list button').forEach(b => {
+                b.classList.remove('bg-blue-50', 'border-blue-100', 'text-blue-700');
+            });
+            const btn = document.getElementById(`btn-type-${typeId}`);
+            if (btn) btn.classList.add('bg-blue-50', 'border-blue-100', 'text-blue-700');
+            
+            // Render fields
+            document.getElementById('current-fields-title').textContent = `${typeName} Fields`;
+            document.getElementById('add-field-btn').classList.remove('hidden');
+            
+            const fields = currentSettings.document_type_fields[typeId] || [];
+            const list = document.getElementById('fields-list');
+            if (fields.length === 0) {
+                list.innerHTML = '<div class="text-center py-6 text-gray-400 bg-gray-50 border border-dashed rounded-lg">No custom fields defined for this type.</div>';
+                return;
+            }
+            
+            list.innerHTML = fields.map(f => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-white border rounded px-2 py-1 text-xs font-mono text-gray-500 w-24 text-center">
+                            ${f.type}
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800">${f.label}</div>
+                            <div class="text-xs text-gray-500 font-mono">${f.id}</div>
+                        </div>
+                    </div>
+                    <div class="space-x-1">
+                        <button onclick='editField(${JSON.stringify(f).replace(/'/g, "\\'")})' class="p-2 text-blue-500 hover:bg-blue-50 rounded"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteField('${f.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openFieldModal() {
+            document.getElementById('field-is-edit').value = 'false';
+            document.getElementById('field-form').reset();
+            document.getElementById('field-modal-title').textContent = 'Add Custom Field';
+            openModal('field-modal');
+        }
+
+        function editField(f) {
+            document.getElementById('field-is-edit').value = 'true';
+            document.getElementById('field-original-id').value = f.id;
+            document.getElementById('field-id').value = f.id;
+            document.getElementById('field-label').value = f.label;
+            document.getElementById('field-type').value = f.type;
+            document.getElementById('field-modal-title').textContent = 'Edit Custom Field';
+            openModal('field-modal');
+        }
+
+        function saveField(e) {
+            e.preventDefault();
+            const id = document.getElementById('field-id').value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            const label = document.getElementById('field-label').value;
+            const type = document.getElementById('field-type').value;
+            const isEdit = document.getElementById('field-is-edit').value === 'true';
+            const origId = document.getElementById('field-original-id').value;
+            
+            const newField = { id, label, type };
+            let fields = currentSettings.document_type_fields[currentFieldsDocType] || [];
+            
+            if (isEdit) {
+                const idx = fields.findIndex(f => f.id === origId);
+                if (idx > -1) fields[idx] = newField;
+            } else {
+                if (fields.find(f => f.id === id)) {
+                    showAlert('Field ID already exists for this type', true); return;
+                }
+                fields.push(newField);
+            }
+            
+            currentSettings.document_type_fields[currentFieldsDocType] = fields;
+            saveSettingsToServer();
+            selectFieldType(currentFieldsDocType, document.getElementById('current-fields-title').textContent.replace(' Fields', ''));
+            closeModal('field-modal');
+        }
+
+        function deleteField(id) {
+            if(!confirm('Delete this field? Data stored under this field in documents may stop displaying.')) return;
+            let fields = currentSettings.document_type_fields[currentFieldsDocType] || [];
+            currentSettings.document_type_fields[currentFieldsDocType] = fields.filter(f => f.id !== id);
+            saveSettingsToServer();
+            selectFieldType(currentFieldsDocType, document.getElementById('current-fields-title').textContent.replace(' Fields', ''));
+        }
+    </script>
+</body>
+</html>
